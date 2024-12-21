@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  添加一个预览按钮到帖子列表中
 // @author       Your name
 // @match        *://*/*
@@ -13,6 +13,7 @@
 
   // 查找所有tbody元素,其id符合normalthread_数字格式
   const tbodies = document.querySelectorAll('tbody[id^="normalthread_"]');
+  const width = tbodies[0]?.clientWidth || 938;
 
   tbodies.forEach((tbody) => {
     // 在每个tbody中查找class为new或common的th元素
@@ -45,6 +46,7 @@
 
         // 创建新的tbody元素
         const newTbody = document.createElement("tbody");
+
         // 生成一个随机ID
         const randomId = "normalthread_" + Math.floor(Math.random() * 10000);
         newTbody.id = randomId;
@@ -53,7 +55,9 @@
         const iframeElement = document.createElement("iframe");
         iframeElement.src = `${href}`;
         iframeElement.style.height = "600px";
-        iframeElement.style.width = "938px";
+        iframeElement.style.width = `${width}px`;
+        iframeElement.style.border = "none";
+        iframeElement.style.borderBottom = "2px solid #F8F8F8";
 
         // 监听iframe加载完成事件
         iframeElement.onload = function () {
