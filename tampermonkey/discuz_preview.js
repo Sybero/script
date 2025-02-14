@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  添加一个预览按钮到帖子列表中
 // @author       Your name
 // @match        *://*/*
@@ -24,6 +24,7 @@
       const button = document.createElement("button");
       button.textContent = "预览";
       button.style.marginLeft = "5px";
+      button.style.border = "none";
 
       // 用于存储关联的tbody引用
       let associatedTbody = null;
@@ -37,6 +38,7 @@
           associatedTbody.remove();
           associatedTbody = null;
           button.textContent = "预览";
+          button.style.background = "rgb(107, 107, 107)";
           return;
         }
 
@@ -93,12 +95,14 @@
         // 保存新tbody的引用
         associatedTbody = newTbody;
         button.textContent = "关闭";
+        button.style.background = 'red';
 
         console.log("已添加新的tbody:", randomId);
       });
 
       // 将按钮添加到th元素中
-      thElement.appendChild(button);
+      // thElement.appendChild(button);
+      thElement.insertBefore(button, thElement.firstChild);
     });
   });
 })();
