@@ -43,6 +43,7 @@
           button.textContent = "预览";
           button.style.textDecoration = "line-through";
           button.style.background = "darkgray";
+          button.style.opacity = 0.7;
           return;
         }
 
