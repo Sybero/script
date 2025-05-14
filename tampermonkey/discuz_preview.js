@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  添加一个预览按钮到帖子列表中
 // @author       Your name
 // @match        *://*/*
