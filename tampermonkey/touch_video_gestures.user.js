@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         触摸屏视频优化
 // @namespace    https://github.com/Sybero/script
-// @version      2.24
-// @description  触摸屏视频播放手势支持，上下滑调整音量，左右滑调整进度
+// @version      2.25
+// @description  触摸屏视频播放手势支持，左右滑调整进度及倍速
 // @author       Sybero (based on HeroChanSysu's original script)
 // @match        https://*/*
 // @match        http://*/*
@@ -284,13 +284,6 @@ TouchGesture.VideoGesture=function(videoElement){
         self._settingBtn.style.display = "none";
     });
  
-    this._videoElement.addEventListener('pause', function () {
-        self._settingBtn.style.display = "block";
-        self.setSettingBtnLayout();
-        setTimeout(() => {
-            self._settingBtn.style.display = "none";
-        }, 3000);
-    });
  
 };
  
@@ -775,7 +768,6 @@ TouchGesture.VideoGesture.prototype.onTouchEnd=function(e){
  
 // 启动监听
 TouchGesture.VideoGesture.prototype.applyDom=function(videoElement){
-    this._containElement.appendChild(this._settingBtn);
     var hostDomain=window.location.host;
     if(TGUserSetting.website[hostDomain]!=null && TGUserSetting.website[hostDomain]["wSwitchEnable"]==false){ //用户设置该网站上不可用，不监听手势
         return;
@@ -1110,8 +1102,9 @@ function tgVideoPageInit(){
         // console.log("usr setting exist");
     }
     
-    TouchGestureSetting["volume"] =  glb[0] && usr[0];
-    TouchGestureSetting["brightness"] =  glb[1] && usr[1];
+    // 始终关闭纵向调节，包括已经保存的旧设置。
+    TouchGestureSetting["volume"] = false;
+    TouchGestureSetting["brightness"] = false;
     TouchGestureSetting["progress"] =  glb[2] && usr[2];
     TouchGestureSetting["speed"] =  glb[3] && usr[3];
     TouchGestureSetting["speedx4"] =  glb[4] && usr[4];
