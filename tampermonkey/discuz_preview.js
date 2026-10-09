@@ -12,16 +12,21 @@
 (function () {
   "use strict";
 
+  const THREAD_SELECTOR = 'tbody[id^="normalthread_"]';
+  const THREAD_CELL_SELECTOR = "th.new, td.new, th.common, td.common";
+  const PREVIEW_MARK_ATTRIBUTE = "data-preview-button-added";
+  const STORAGE_KEY = "discuz_previewed_posts";
+
   // 检查是否为Discuz!论坛
   function isDiscuzForum() {
     // 检查特征1：页面上是否存在Discuz的特征meta标签
     const metaGenerator = document.querySelector('meta[name="generator"]');
-    if (metaGenerator && metaGenerator.content.toLowerCase().includes('discuz')) {
+    if (metaGenerator?.content?.toLowerCase().includes("discuz")) {
       return true;
     }
 
     // 检查特征2：是否存在Discuz特有的CSS类名
-    if (document.querySelector('#ft.wp, .discuz_tips, .dz_chart')) {
+    if (document.querySelector("#ft.wp, .discuz_tips, .dz_chart, " + THREAD_SELECTOR)) {
       return true;
     }
 
@@ -40,18 +45,21 @@
 
   // 获取帖子列表宽度
   const getThreadListWidth = () => {
-    const tbodies = document.querySelectorAll('tbody[id^="normalthread_"]');
-    return tbodies[0]?.clientWidth || 938;
+    return document.querySelector(THREAD_SELECTOR)?.clientWidth || 938;
   };
 
   // 管理已预览帖子的存储
   const previewedPosts = {
-    storageKey: 'discuz_previewed_posts',
-    
     // 获取所有已预览的帖子
     getAll() {
-      const stored = localStorage.getItem(this.storageKey);
-      return stored ? JSON.parse(stored) : {};
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const posts = stored ? JSON.parse(stored) : {};
+        return posts && typeof posts === "object" && !Array.isArray(posts) ? posts : {};
+      } catch (error) {
+        console.warn("无法读取已预览帖子记录:", error);
+        return {};
+      }
     },
     
     // 检查帖子是否已预览
@@ -64,36 +72,32 @@
     markAsPreviewed(postId) {
       const posts = this.getAll();
       posts[postId] = Date.now();
-      localStorage.setItem(this.storageKey, JSON.stringify(posts));
-    },
-    
-    // 移除帖子的预览标记
-    removePreviewMark(postId) {
-      const posts = this.getAll();
-      delete posts[postId];
-      localStorage.setItem(this.storageKey, JSON.stringify(posts));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
     }
   };
 
   // 设置按钮为已预览状态
-  function setButtonPreviewedStyle(button) {
-    button.textContent = "预览";
-    button.style.textDecoration = "line-through";
-    button.style.background = "darkgray";
-    button.style.opacity = 0.7;
-  }
-
-  // 设置按钮为未预览状态
-  function setButtonNormalStyle(button) {
-    button.textContent = "预览";
-    button.style.textDecoration = "none";
-    button.style.background = "darkgray";
-    button.style.opacity = 1;
+  function setButtonState(button, state) {
+    const states = {
+      preview: { text: "预览", background: "darkgray", opacity: "1", decoration: "none" },
+      previewed: { text: "预览", background: "darkgray", opacity: "0.7", decoration: "line-through" },
+      open: { text: "关闭", background: "red", opacity: "1", decoration: "none" },
+    };
+    const style = states[state];
+    button.textContent = style.text;
+    button.style.textDecoration = style.decoration;
+    button.style.background = style.background;
+    button.style.opacity = style.opacity;
+    button.dataset.previewState = state;
   }
 
   // 创建预览按钮
   function createPreviewButton(thElement, tbody) {
-    const postId = tbody.id.replace('normalthread_', '');
+    const postId = tbody.id.slice("normalthread_".length);
+    const href = thElement.querySelector(":scope > a")?.href;
+    if (!postId || !href) {
+      return;
+    }
     
     // 创建按钮元素
     const button = document.createElement("button");
@@ -103,10 +107,11 @@
     button.style.border = "none";
     button.style.background = "darkgray";
     button.style.cursor = "pointer";
+    button.type = "button";
 
     // 检查是否已预览过，设置相应的样式
     if (previewedPosts.isPostPreviewed(postId)) {
-      setButtonPreviewedStyle(button);
+      setButtonState(button, "previewed");
     }
 
     // 用于存储关联的tbody引用
@@ -120,26 +125,19 @@
       if (associatedTbody) {
         associatedTbody.remove();
         associatedTbody = null;
-        button.textContent = "预览";
-        setButtonPreviewedStyle(button);
-        previewedPosts.markAsPreviewed(postId);
+        setButtonState(button, "previewed");
         return;
       }
-
-      // 获取th中a标签的href
-      const a = thElement.querySelector(":scope > a");
-      const href = a.href;
 
       // 创建新的tbody元素
       const newTbody = document.createElement("tbody");
 
-      // 生成一个随机ID
-      const randomId = "normalthread_" + Math.floor(Math.random() * 10000);
-      newTbody.id = randomId;
+      newTbody.dataset.previewBody = "true";
 
       // 添加一个iframe到新tbody
       const iframeElement = document.createElement("iframe");
       iframeElement.src = `${href}`;
+      iframeElement.title = "帖子预览";
       iframeElement.style.height = "600px";
       iframeElement.style.width = `${getThreadListWidth()}px`;
       iframeElement.style.border = "none";
@@ -167,7 +165,7 @@
             element.style.display = "none"; // 隐藏元素
           }
         } catch (error) {
-          console.log("无法访问iframe内容:", error);
+          console.warn("无法访问 iframe 内容，保留原始页面:", error);
         }
       };
 
@@ -178,8 +176,7 @@
 
       // 保存新tbody的引用
       associatedTbody = newTbody;
-      button.textContent = "关闭";
-      button.style.background = "red";
+      setButtonState(button, "open");
     });
 
     // 将按钮添加到th元素中
@@ -189,23 +186,23 @@
   // 处理帖子列表
   function processThreadList() {
     // 查找所有tbody元素,其id符合normalthread_数字格式
-    const tbodies = document.querySelectorAll('tbody[id^="normalthread_"]');
+    const tbodies = document.querySelectorAll(THREAD_SELECTOR);
 
     tbodies.forEach((tbody) => {
       // 检查是否已经添加过按钮
-      if (tbody.hasAttribute('data-preview-button-added')) {
+      if (tbody.hasAttribute(PREVIEW_MARK_ATTRIBUTE)) {
         return;
       }
 
       // 在每个tbody中查找class为new或common的th元素
-      const thElements = tbody.querySelectorAll("th.new, td.new, th.common, td.common");
+      const thElements = tbody.querySelectorAll(THREAD_CELL_SELECTOR);
 
       thElements.forEach((thElement) => {
         createPreviewButton(thElement, tbody);
       });
 
       // 标记已添加按钮
-      tbody.setAttribute('data-preview-button-added', 'true');
+      tbody.setAttribute(PREVIEW_MARK_ATTRIBUTE, "true");
     });
   }
 
@@ -218,13 +215,7 @@
 
     mutations.forEach((mutation) => {
       // 检查是否有新的tbody添加
-      if (mutation.addedNodes) {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeName === 'TBODY' && node.id && node.id.startsWith('normalthread_')) {
-            shouldProcess = true;
-          }
-        });
-      }
+      if (mutation.addedNodes.length > 0) shouldProcess = true;
     });
 
     if (shouldProcess) {
