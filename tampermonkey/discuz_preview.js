@@ -16,6 +16,21 @@
   const THREAD_CELL_SELECTOR = "th.new, td.new, th.common, td.common";
   const PREVIEW_MARK_ATTRIBUTE = "data-preview-button-added";
   const STORAGE_KEY = "discuz_previewed_posts";
+  const previewStyle = document.createElement("style");
+  previewStyle.textContent = `
+    .discuz-preview-body > tr > td { padding: 0 !important; }
+    .discuz-preview-panel { position: relative; width: 100%; max-width: 100%; box-sizing: border-box; border-bottom: 2px solid #f8f8f8; background: #fff; }
+    .discuz-preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 44px; box-sizing: border-box; }
+    .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: #1677ff; touch-action: manipulation; }
+    .discuz-preview-status { color: #666; font-size: 14px; }
+    .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
+    @media (max-width: 767px) {
+      .discuz-preview-panel { max-width: 100vw; overflow: hidden; }
+      .discuz-preview-frame { height: min(70dvh, 560px); min-height: 360px; }
+      .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    }
+  `;
+  document.head.appendChild(previewStyle);
 
   // 检查是否为Discuz!论坛
   function isDiscuzForum() {
@@ -42,11 +57,6 @@
   if (!isDiscuzForum()) {
     return;
   }
-
-  // 获取帖子列表宽度
-  const getThreadListWidth = () => {
-    return document.querySelector(THREAD_SELECTOR)?.clientWidth || 938;
-  };
 
   // 管理已预览帖子的存储
   const previewedPosts = {
@@ -133,18 +143,34 @@
       const newTbody = document.createElement("tbody");
 
       newTbody.dataset.previewBody = "true";
+      newTbody.className = "discuz-preview-body";
 
-      // 添加一个iframe到新tbody
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 99;
+      const panel = document.createElement("div");
+      panel.className = "discuz-preview-panel";
+      const toolbar = document.createElement("div");
+      toolbar.className = "discuz-preview-toolbar";
+      const status = document.createElement("span");
+      status.className = "discuz-preview-status";
+      status.textContent = "正在加载…";
+      const openLink = document.createElement("a");
+      openLink.href = href;
+      openLink.target = "_blank";
+      openLink.rel = "noopener noreferrer";
+      openLink.textContent = "打开原帖";
+      toolbar.append(status, openLink);
+
       const iframeElement = document.createElement("iframe");
       iframeElement.src = `${href}`;
       iframeElement.title = "帖子预览";
-      iframeElement.style.height = "600px";
-      iframeElement.style.width = `${getThreadListWidth()}px`;
-      iframeElement.style.border = "none";
-      iframeElement.style.borderBottom = "2px solid #F8F8F8";
+      iframeElement.loading = "lazy";
+      iframeElement.className = "discuz-preview-frame";
 
       // 监听iframe加载完成事件
       iframeElement.onload = function () {
+        status.textContent = "已加载";
         try {
           // 获取iframe中的文档对象
           const iframeDoc =
@@ -166,10 +192,23 @@
           }
         } catch (error) {
           console.warn("无法访问 iframe 内容，保留原始页面:", error);
+          status.textContent = "已加载（无法调整页面布局）";
         }
       };
 
-      newTbody.appendChild(iframeElement);
+      iframeElement.onerror = function () {
+        status.textContent = "无法嵌入此帖子，请打开原帖";
+      };
+      window.setTimeout(() => {
+        if (status.textContent === "正在加载…") {
+          status.textContent = "加载较慢，可打开原帖";
+        }
+      }, 8000);
+
+      panel.append(toolbar, iframeElement);
+      cell.appendChild(panel);
+      row.appendChild(cell);
+      newTbody.appendChild(row);
 
       // 在原tbody后面插入新tbody
       tbody.parentNode.insertBefore(newTbody, tbody.nextSibling);
