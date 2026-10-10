@@ -25,12 +25,78 @@
     .discuz-preview-status { color: #666; font-size: 14px; }
     .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
     @media (max-width: 767px) {
-      .discuz-preview-panel { max-width: 100vw; overflow: hidden; }
-      .discuz-preview-frame { height: min(70dvh, 560px); min-height: 360px; }
-      .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+      .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; }
+      .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 61px); min-height: 0; overflow: auto; }
+      .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,.35); }
+      .discuz-preview-drawer .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+      .discuz-preview-close { margin-left: auto; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
     }
   `;
   document.head.appendChild(previewStyle);
+  let activeDrawer = null;
+
+  function isMobileViewport() {
+    return window.matchMedia("(max-width: 767px)").matches;
+  }
+
+  function closeDrawer() {
+    if (!activeDrawer) return;
+    const drawer = activeDrawer;
+    drawer.backdrop.remove();
+    drawer.drawer.remove();
+    document.body.style.overflow = drawer.previousOverflow;
+    window.removeEventListener("popstate", drawer.onPopState);
+    activeDrawer = null;
+    drawer.onClose?.();
+  }
+
+  function openDrawer(href, title, onClose) {
+    closeDrawer();
+    const backdrop = document.createElement("div");
+    backdrop.className = "discuz-preview-drawer-backdrop";
+    const drawer = document.createElement("section");
+    drawer.className = "discuz-preview-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-label", title || "帖子预览");
+    const toolbar = document.createElement("div");
+    toolbar.className = "discuz-preview-toolbar";
+    const status = document.createElement("span");
+    status.className = "discuz-preview-status";
+    status.textContent = "正在加载…";
+    const openLink = document.createElement("a");
+    openLink.href = href;
+    openLink.target = "_blank";
+    openLink.rel = "noopener noreferrer";
+    openLink.textContent = "打开原帖";
+    const closeButton = document.createElement("button");
+    closeButton.className = "discuz-preview-close";
+    closeButton.type = "button";
+    closeButton.setAttribute("aria-label", "关闭预览");
+    closeButton.textContent = "×";
+    const iframe = document.createElement("iframe");
+    iframe.className = "discuz-preview-frame";
+    iframe.title = title || "帖子预览";
+    iframe.loading = "eager";
+    iframe.src = href;
+    toolbar.append(status, openLink, closeButton);
+    drawer.append(toolbar, iframe);
+    document.body.append(backdrop, drawer);
+    const entry = { backdrop, drawer, previousOverflow: document.body.style.overflow, onClose };
+    entry.onPopState = () => closeDrawer();
+    activeDrawer = entry;
+    document.body.style.overflow = "hidden";
+    history.pushState({ discuzPreview: true }, "", `${location.href.split("#")[0]}#discuz-preview`);
+    const finish = () => {
+      if (activeDrawer === entry && location.hash === "#discuz-preview") history.back();
+      else if (activeDrawer === entry) closeDrawer();
+    };
+    closeButton.addEventListener("click", finish);
+    backdrop.addEventListener("click", finish);
+    iframe.addEventListener("load", () => { status.textContent = "已加载"; });
+    iframe.addEventListener("error", () => { status.textContent = "无法嵌入此帖子，请打开原帖"; });
+    window.addEventListener("popstate", entry.onPopState);
+    closeButton.focus();
+  }
 
   // 检查是否为Discuz!论坛
   function isDiscuzForum() {
@@ -136,6 +202,15 @@
         associatedTbody.remove();
         associatedTbody = null;
         setButtonState(button, "previewed");
+        return;
+      }
+
+      if (isMobileViewport()) {
+        openDrawer(href, thElement.textContent.trim().slice(0, 80), () => {
+          setButtonState(button, previewedPosts.isPostPreviewed(postId) ? "previewed" : "preview");
+        });
+        previewedPosts.markAsPreviewed(postId);
+        setButtonState(button, "open");
         return;
       }
 
