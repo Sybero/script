@@ -24,19 +24,20 @@
     .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: #1677ff; touch-action: manipulation; }
     .discuz-preview-status { color: #666; font-size: 14px; }
     .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
-    @media (max-width: 767px) {
-      .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; }
-      .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 61px); min-height: 0; overflow: auto; }
-      .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,.35); }
-      .discuz-preview-drawer .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-      .discuz-preview-close { margin-left: auto; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
-    }
+    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; }
+    .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 61px); min-height: 0; overflow: auto; }
+    .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,.35); }
+    .discuz-preview-drawer .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .discuz-preview-close { margin-left: auto; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
   `;
   document.head.appendChild(previewStyle);
   let activeDrawer = null;
 
   function isMobileViewport() {
-    return window.matchMedia("(max-width: 767px)").matches;
+    const narrowViewport = window.matchMedia("(max-width: 767px)").matches;
+    const touchPointer = window.matchMedia("(pointer: coarse)").matches;
+    const touchDevice = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+    return narrowViewport || (touchPointer && touchDevice);
   }
 
   function closeDrawer() {
