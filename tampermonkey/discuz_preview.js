@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1.9
+// @version      0.1.10
 // @description  添加一个预览按钮到帖子列表中，并记录已预览的帖子
 // @author       Your name
 // @match        http://*/*
@@ -20,15 +20,19 @@
   previewStyle.textContent = `
     .discuz-preview-body > tr > td { padding: 0 !important; }
     .discuz-preview-panel { position: relative; width: 100%; max-width: 100%; box-sizing: border-box; border-bottom: 2px solid #f8f8f8; background: #fff; }
-    .discuz-preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 44px; box-sizing: border-box; }
-    .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: #1677ff; touch-action: manipulation; }
-    .discuz-preview-status { color: #666; font-size: 14px; }
+    .discuz-preview-toolbar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; min-height: 40px; box-sizing: border-box; }
+    .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 8px; color: #1677ff; touch-action: manipulation; font-size: 13px; }
+    .discuz-preview-status { min-width: 0; overflow: hidden; color: #666; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
     .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
-    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; }
-    .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 61px); min-height: 0; overflow: auto; }
-    .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,.35); }
+    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; transform: translateY(100%); transition: transform .24s ease-out; }
+    .discuz-preview-drawer.is-visible { transform: translateY(0); }
+    .discuz-preview-drawer.is-closing { transform: translateY(100%); }
+    .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 49px); min-height: 0; overflow: auto; }
+    .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,0); transition: background .24s ease-out; }
+    .discuz-preview-drawer-backdrop.is-visible { background: rgba(0,0,0,.35); }
+    .discuz-preview-drawer-backdrop.is-closing { background: rgba(0,0,0,0); }
     .discuz-preview-drawer .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-    .discuz-preview-close { margin-left: auto; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
+    .discuz-preview-close { margin-left: auto; min-width: 36px; min-height: 36px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
   `;
   document.head.appendChild(previewStyle);
   let activeDrawer = null;
@@ -43,12 +47,18 @@
   function closeDrawer() {
     if (!activeDrawer) return;
     const drawer = activeDrawer;
-    drawer.backdrop.remove();
-    drawer.drawer.remove();
+    drawer.drawer.classList.remove("is-visible");
+    drawer.drawer.classList.add("is-closing");
+    drawer.backdrop.classList.remove("is-visible");
+    drawer.backdrop.classList.add("is-closing");
     document.body.style.overflow = drawer.previousOverflow;
     window.removeEventListener("popstate", drawer.onPopState);
     activeDrawer = null;
-    drawer.onClose?.();
+    window.setTimeout(() => {
+      drawer.backdrop.remove();
+      drawer.drawer.remove();
+      drawer.onClose?.();
+    }, 240);
   }
 
   function openDrawer(href, title, onClose) {
@@ -86,6 +96,10 @@
     entry.onPopState = () => closeDrawer();
     activeDrawer = entry;
     document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => {
+      drawer.classList.add("is-visible");
+      backdrop.classList.add("is-visible");
+    });
     history.pushState({ discuzPreview: true }, "", `${location.href.split("#")[0]}#discuz-preview`);
     const finish = () => {
       if (activeDrawer === entry && location.hash === "#discuz-preview") history.back();
@@ -93,7 +107,15 @@
     };
     closeButton.addEventListener("click", finish);
     backdrop.addEventListener("click", finish);
-    iframe.addEventListener("load", () => { status.textContent = "已加载"; });
+    iframe.addEventListener("load", () => {
+      status.textContent = "已加载";
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        iframeDoc.querySelectorAll('[id="hd"], [id^="hd"], [id$="hd"], .vwthd, .pls, .pattl, .authi').forEach((element) => element.remove());
+      } catch (error) {
+        status.textContent = "已加载";
+      }
+    });
     iframe.addEventListener("error", () => { status.textContent = "无法嵌入此帖子，请打开原帖"; });
     window.addEventListener("popstate", entry.onPopState);
     closeButton.focus();
@@ -223,21 +245,9 @@
 
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 99;
+      cell.colSpan = tbody.querySelector("tr")?.cells.length || 1;
       const panel = document.createElement("div");
       panel.className = "discuz-preview-panel";
-      const toolbar = document.createElement("div");
-      toolbar.className = "discuz-preview-toolbar";
-      const status = document.createElement("span");
-      status.className = "discuz-preview-status";
-      status.textContent = "正在加载…";
-      const openLink = document.createElement("a");
-      openLink.href = href;
-      openLink.target = "_blank";
-      openLink.rel = "noopener noreferrer";
-      openLink.textContent = "打开原帖";
-      toolbar.append(status, openLink);
-
       const iframeElement = document.createElement("iframe");
       iframeElement.src = `${href}`;
       iframeElement.title = "帖子预览";
@@ -246,7 +256,6 @@
 
       // 监听iframe加载完成事件
       iframeElement.onload = function () {
-        status.textContent = "已加载";
         try {
           // 获取iframe中的文档对象
           const iframeDoc =
@@ -254,34 +263,19 @@
             iframeElement.contentWindow.document;
 
           // 查找并移除id为hd或者以hd开头/结尾的元素
-          const hdElements = iframeDoc.querySelectorAll(
-            '[id="hd"], [id^="hd"], [id$="hd"]',
-          );
-          hdElements.forEach((element) => {
+          iframeDoc.querySelectorAll('[id="hd"], [id^="hd"], [id$="hd"], .vwthd, .pls, .pattl, .authi').forEach((element) => {
             element.remove();
           });
-
-          // 查找所有class为pls的元素
-          const plsElements = iframeDoc.getElementsByClassName("pls");
-          for (let element of plsElements) {
-            element.style.display = "none"; // 隐藏元素
-          }
         } catch (error) {
           console.warn("无法访问 iframe 内容，保留原始页面:", error);
-          status.textContent = "已加载（无法调整页面布局）";
         }
       };
 
       iframeElement.onerror = function () {
-        status.textContent = "无法嵌入此帖子，请打开原帖";
+        console.warn("帖子 iframe 加载失败:", href);
       };
-      window.setTimeout(() => {
-        if (status.textContent === "正在加载…") {
-          status.textContent = "加载较慢，可打开原帖";
-        }
-      }, 8000);
 
-      panel.append(toolbar, iframeElement);
+      panel.appendChild(iframeElement);
       cell.appendChild(panel);
       row.appendChild(cell);
       newTbody.appendChild(row);
