@@ -24,7 +24,7 @@
     .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 8px; color: #1677ff; touch-action: manipulation; font-size: 13px; }
     .discuz-preview-status { min-width: 0; overflow: hidden; color: #666; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
     .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
-    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(90dvh, 760px); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; transform: translateY(100%); transition: transform .24s ease-out; }
+    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(95dvh); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; transform: translateY(100%); transition: transform .24s ease-out; }
     .discuz-preview-drawer.is-visible { transform: translateY(0); }
     .discuz-preview-drawer.is-closing { transform: translateY(100%); }
     .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 49px); min-height: 0; overflow: auto; }
