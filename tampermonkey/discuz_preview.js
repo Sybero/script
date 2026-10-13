@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1.10
+// @version      0.1.11
 // @description  添加一个预览按钮到帖子列表中，并记录已预览的帖子
 // @author       Your name
 // @match        http://*/*
@@ -53,6 +53,9 @@
     drawer.backdrop.classList.add("is-closing");
     document.body.style.overflow = drawer.previousOverflow;
     window.removeEventListener("popstate", drawer.onPopState);
+    window.removeEventListener("resize", drawer.syncViewport);
+    window.visualViewport?.removeEventListener("resize", drawer.syncViewport);
+    window.visualViewport?.removeEventListener("scroll", drawer.syncViewport);
     activeDrawer = null;
     window.setTimeout(() => {
       drawer.backdrop.remove();
@@ -93,6 +96,17 @@
     drawer.append(toolbar, iframe);
     document.body.append(backdrop, drawer);
     const entry = { backdrop, drawer, previousOverflow: document.body.style.overflow, onClose };
+    entry.syncViewport = () => {
+      const viewport = window.visualViewport;
+      drawer.style.left = `${viewport?.offsetLeft ?? 0}px`;
+      drawer.style.right = "auto";
+      drawer.style.width = `${viewport?.width ?? window.innerWidth}px`;
+      drawer.style.boxSizing = "border-box";
+    };
+    entry.syncViewport();
+    window.addEventListener("resize", entry.syncViewport);
+    window.visualViewport?.addEventListener("resize", entry.syncViewport);
+    window.visualViewport?.addEventListener("scroll", entry.syncViewport);
     entry.onPopState = () => closeDrawer();
     activeDrawer = entry;
     document.body.style.overflow = "hidden";
