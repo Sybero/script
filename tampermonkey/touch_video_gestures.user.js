@@ -120,6 +120,7 @@
     const defaults = {
         global: {
             gSwitchState: true, gSwitchProgress: true, gSwitchSpeed: true,
+            gActivationMode: "auto",
             gSwitchSpeedX4: true, gSwitchSpeedX4Sigle: false, gSelectToastPos: "middle"
         },
         website: {}
@@ -154,6 +155,9 @@
             if (!["top", "middle", "bottom"].includes(result.global.gSelectToastPos)) {
                 result.global.gSelectToastPos = "middle";
             }
+            if (!["auto", "enabled", "disabled"].includes(result.global.gActivationMode)) {
+                result.global.gActivationMode = "auto";
+            }
             for (const [domain, entry] of Object.entries(value.website || {})) {
                 if (!entry || typeof entry !== "object") continue;
                 const site = { ...siteDefaults };
@@ -167,6 +171,19 @@
             console.warn("[TouchGesture] Invalid saved settings; using defaults.", error);
             return { global: { ...defaults.global }, website: {} };
         }
+    }
+
+    function hasTouchCapability() {
+        return (navigator.maxTouchPoints || 0) > 0 ||
+            matchMedia("(pointer: coarse)").matches || matchMedia("(any-pointer: coarse)").matches;
+    }
+
+    function activationMode() {
+        return settings.global.gActivationMode;
+    }
+
+    function shouldStart(mode = activationMode()) {
+        return mode === "enabled" || (mode === "auto" && hasTouchCapability());
     }
 
     function optionsFor(video) {
@@ -644,6 +661,21 @@
         const title = document.createElement("h2");
         title.textContent = `视频手势设置 · ${host}`;
         panel.append(title);
+        const activationLabel = document.createElement("label");
+        activationLabel.textContent = "运行模式 ";
+        const activation = document.createElement("select");
+        for (const [value, text] of [["auto", "自动（检测触摸设备）"], ["enabled", "始终启用"], ["disabled", "始终禁用"]]) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = text;
+            activation.append(option);
+        }
+        activation.value = settings.global.gActivationMode;
+        activationLabel.append(activation);
+        panel.append(activationLabel);
+        const status = document.createElement("small");
+        status.textContent = hasTouchCapability() ? "已检测到触摸或粗指针输入。" : "未检测到触摸输入，自动模式将休眠。";
+        panel.append(status);
         const fields = [
             ["全局", settings.global, {
                 gSwitchProgress: "单指横滑调进度", gSwitchSpeed: "双指横滑调倍速",
@@ -707,8 +739,9 @@
                 (input.name.startsWith("g") ? settings.global : settings.website[host])[input.name] = input.checked;
             }
             settings.global.gSelectToastPos = position.value;
+            settings.global.gActivationMode = activation.value;
             GM_setValue("tg_setting", JSON.stringify(settings));
-            discover();
+            if (shouldStart()) startRuntime();
             panel.remove();
             settingsPanel = null;
         });
@@ -761,42 +794,55 @@
         .TouchGesture_SettingsPanel button { margin:12px 8px 0 0; padding:6px 12px; }
         .TouchGesture_Toast[hidden],.TouchGesture_SettingsButton[hidden],.TouchGesture_Unlock[hidden] { display:none!important; }
     `);
+    let runtimeStarted = false;
+    function startRuntime() {
+        if (runtimeStarted || !shouldStart()) return;
+        runtimeStarted = true;
+            const observer = new MutationObserver(records => {
+                // Ignore changes to our own overlays to avoid an observer feedback loop.
+                if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
+                    node.nodeType === 1 && (node.matches?.("video,bwp-video") || node.querySelector?.("video,bwp-video"))))) {
+                    scheduleDiscovery();
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            setInterval(discover, 5000);
+            function relayout() {
+                for (const instance of instances.values()) instance.layout();
+            }
+            function fullscreenChanged() {
+                unlockOrientation();
+                if (settingsPanel) (fullscreenElement() || document.body).append(settingsPanel);
+                discover();
+                for (const instance of instances.values()) instance.lockOrientation();
+            }
+            window.addEventListener("resize", relayout);
+            window.addEventListener("scroll", relayout, { passive: true, capture: true });
+            document.addEventListener("fullscreenchange", fullscreenChanged);
+            document.addEventListener("webkitfullscreenchange", fullscreenChanged);
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) for (const instance of instances.values()) instance.finish(false);
+            });
+            window.addEventListener("blur", () => {
+                for (const instance of instances.values()) instance.finish(false);
+            });
+            window.addEventListener("pagehide", () => {
+                clearTimeout(discoveryTimer);
+                discoveryTimer = null;
+                for (const instance of instances.values()) instance.destroy();
+                instances.clear();
+                unlockOrientation();
+            });
+            window.addEventListener("pageshow", scheduleDiscovery);
+            discover();
+    }
+
     if (typeof GM_registerMenuCommand === "function") GM_registerMenuCommand("视频手势设置", openSettings);
-    const observer = new MutationObserver(records => {
-        // Ignore changes to our own overlays to avoid an observer feedback loop.
-        if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
-            node.nodeType === 1 && (node.matches?.("video,bwp-video") || node.querySelector?.("video,bwp-video"))))) {
-            scheduleDiscovery();
-        }
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    setInterval(discover, 5000);
-    function relayout() {
-        for (const instance of instances.values()) instance.layout();
+    if (shouldStart()) {
+        startRuntime();
+    } else {
+        window.addEventListener("pointerdown", event => {
+            if (event.pointerType === "touch" || event.pointerType === "pen") startRuntime();
+        }, { passive: true });
     }
-    function fullscreenChanged() {
-        unlockOrientation();
-        if (settingsPanel) (fullscreenElement() || document.body).append(settingsPanel);
-        discover();
-        for (const instance of instances.values()) instance.lockOrientation();
-    }
-    window.addEventListener("resize", relayout);
-    window.addEventListener("scroll", relayout, { passive: true, capture: true });
-    document.addEventListener("fullscreenchange", fullscreenChanged);
-    document.addEventListener("webkitfullscreenchange", fullscreenChanged);
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden) for (const instance of instances.values()) instance.finish(false);
-    });
-    window.addEventListener("blur", () => {
-        for (const instance of instances.values()) instance.finish(false);
-    });
-    window.addEventListener("pagehide", () => {
-        clearTimeout(discoveryTimer);
-        discoveryTimer = null;
-        for (const instance of instances.values()) instance.destroy();
-        instances.clear();
-        unlockOrientation();
-    });
-    window.addEventListener("pageshow", scheduleDiscovery);
-    discover();
 })();
