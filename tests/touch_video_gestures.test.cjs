@@ -231,3 +231,10 @@ test('late orientation completion after leaving fullscreen releases lock', async
     assert.equal(h.controller.unlock.hidden, true);
     assert.equal(unlocks, 2);
 });
+
+test('settings button CSS pins desktop icon to a small fixed square', () => {
+    const source = require('node:fs').readFileSync(require.resolve('../tampermonkey/touch_video_gestures.user.js'), 'utf8');
+    assert.match(source, /\.TouchGesture_SettingsButton,[^\{]+\{[^}]*width:36px !important/);
+    assert.match(source, /\.TouchGesture_SettingsButton,[^\{]+\{[^}]*height:36px !important/);
+    assert.match(source, /\.TouchGesture_SettingsButton,[^\{]+\{[^}]*font:20px\/36px system-ui,sans-serif !important/);
+});

@@ -749,10 +749,8 @@
         .TouchGesture_Toast { inset:auto; margin:0; border:0; width:max-content; position:fixed; transform:translate(-50%,-50%); z-index:2147483647;
             padding:12px 18px; border-radius:10px; background:rgba(0,0,0,.78); color:white;
             font:16px/1.4 system-ui,sans-serif; pointer-events:none; white-space:nowrap; }
-        .TouchGesture_SettingsButton,.TouchGesture_Unlock { inset:auto; margin:0; width:max-content; position:fixed; z-index:2147483647;
-            padding:8px; border:0; border-radius:8px; background:rgba(0,0,0,.65); color:white;
-            font:16px/1.4 system-ui,sans-serif; cursor:pointer; }
-        .TouchGesture_Unlock { transform:translateX(-50%); }
+        .TouchGesture_SettingsButton,.TouchGesture_Unlock { inset:auto !important; margin:0 !important; box-sizing:border-box !important; width:36px !important; height:36px !important; min-width:36px !important; min-height:36px !important; max-width:36px !important; max-height:36px !important; padding:0 !important; position:fixed !important; z-index:2147483647 !important; display:block !important; border:0 !important; border-radius:8px !important; background:rgba(0,0,0,.65) !important; color:white !important; font:20px/36px system-ui,sans-serif !important; text-align:center !important; cursor:pointer !important; }
+        .TouchGesture_Unlock { transform:translateX(-50%) !important; width:110px !important; min-width:110px !important; max-width:110px !important; font-size:13px !important; }
         .TouchGesture_SettingsPanel { position:fixed; z-index:2147483647; left:50%; top:50%;
             transform:translate(-50%,-50%); box-sizing:border-box; width:min(420px,92vw);
             max-height:85vh; overflow:auto; padding:18px; border-radius:12px; background:#202124;
