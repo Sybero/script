@@ -86,6 +86,7 @@ test('adding a third finger restores original rate and cannot start a partial ge
 
 test('vertical gestures allow scrolling and cancel temporary acceleration', () => {
     const h = harness();
+    assert.equal(h.controller.options.forbidScrollNFS, false);
     h.controller.onStart(h.event([h.point(1, 100), h.point(2, 120)]));
     const move = h.event([h.point(1, 100, 140), h.point(2, 120, 140)]);
     h.controller.onMove(move);
