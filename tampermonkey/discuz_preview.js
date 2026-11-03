@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Discuz! 帖子预览
 // @namespace    http://tampermonkey.net/
-// @version      0.1.11
+// @version      0.1.12
 // @description  添加一个预览按钮到帖子列表中，并记录已预览的帖子
 // @author       Your name
 // @match        http://*/*
@@ -24,14 +24,14 @@
     .discuz-preview-toolbar a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 8px; color: #1677ff; touch-action: manipulation; font-size: 13px; }
     .discuz-preview-status { min-width: 0; overflow: hidden; color: #666; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
     .discuz-preview-frame { display: block; width: 100%; max-width: 100%; height: 600px; border: 0; }
-    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; height: min(95dvh); background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; transform: translateY(100%); transition: transform .24s ease-out; }
+    .discuz-preview-drawer { position: fixed; inset: auto 0 0; z-index: 2147483646; display: flex; flex-direction: column; height: 95vh; height: 95dvh; background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.24); overflow: hidden; transform: translateY(100%); transition: transform .24s ease-out; }
     .discuz-preview-drawer.is-visible { transform: translateY(0); }
     .discuz-preview-drawer.is-closing { transform: translateY(100%); }
-    .discuz-preview-drawer .discuz-preview-frame { height: calc(100% - 49px); min-height: 0; overflow: auto; }
+    .discuz-preview-drawer .discuz-preview-frame { flex: 1 1 0%; height: auto; min-height: 0; }
     .discuz-preview-drawer-backdrop { position: fixed; inset: 0; z-index: 2147483645; background: rgba(0,0,0,0); transition: background .24s ease-out; }
     .discuz-preview-drawer-backdrop.is-visible { background: rgba(0,0,0,.35); }
     .discuz-preview-drawer-backdrop.is-closing { background: rgba(0,0,0,0); }
-    .discuz-preview-drawer .discuz-preview-toolbar { position: sticky; top: 0; z-index: 1; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .discuz-preview-drawer .discuz-preview-toolbar { position: relative; flex: 0 0 auto; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
     .discuz-preview-close { margin-left: auto; min-width: 36px; min-height: 36px; border: 0; border-radius: 6px; background: #eee; font-size: 20px; touch-action: manipulation; }
   `;
   document.head.appendChild(previewStyle);
@@ -97,10 +97,20 @@
     document.body.append(backdrop, drawer);
     const entry = { backdrop, drawer, previousOverflow: document.body.style.overflow, onClose };
     entry.syncViewport = () => {
+      // position: fixed 以「布局视窗」为参照，移动端地址栏/工具栏/软键盘展开时
+      // 布局视窗底部不等于可见底部，必须用 visualViewport 同时校正上下左右与高度。
       const viewport = window.visualViewport;
-      drawer.style.left = `${viewport?.offsetLeft ?? 0}px`;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      const offsetLeft = viewport?.offsetLeft ?? 0;
+      const offsetTop = viewport?.offsetTop ?? 0;
+      const drawerHeight = Math.max(0, Math.round(height * 0.95));
+      drawer.style.left = `${offsetLeft}px`;
       drawer.style.right = "auto";
-      drawer.style.width = `${viewport?.width ?? window.innerWidth}px`;
+      drawer.style.width = `${width}px`;
+      drawer.style.bottom = "auto";
+      drawer.style.top = `${offsetTop + height - drawerHeight}px`;
+      drawer.style.height = `${drawerHeight}px`;
       drawer.style.boxSizing = "border-box";
     };
     entry.syncViewport();
