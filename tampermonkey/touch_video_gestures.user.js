@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         触摸屏视频优化
 // @namespace    https://github.com/Sybero/script
-// @version      2.26
+// @version      2.27
 // @description  触摸屏视频播放手势支持，单指横滑调进度、双指横滑调倍速
 // @author       Sybero (based on HeroChanSysu's original script)
 // @match        https://*/*
